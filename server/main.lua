@@ -589,6 +589,20 @@ RegisterNetEvent('inventory:server:CraftAttachment', function(itemName, itemCost
 	end
 end)
 
+RegisterNetEvent('inventory:server:CraftWeapon', function(itemName, itemCosts, amount, toSlot, points)
+	local src = source
+	local Player = QBCore.Functions.GetPlayer(src)
+	local amount = tonumber(amount)
+	if itemName ~= nil and itemCosts ~= nil then
+		for k, v in pairs(itemCosts) do
+			Player.Functions.RemoveItem(k, (v*amount))
+		end
+		Player.Functions.AddItem(itemName, amount, toSlot)
+		Player.Functions.SetMetaData("weaponcraftingrep", Player.PlayerData.metadata["weaponcraftingrep"]+(points*amount))
+		TriggerClientEvent("inventory:client:UpdatePlayerInventory", src, false)
+	end
+end)
+
 RegisterNetEvent('inventory:server:SetIsOpenState', function(IsOpen, type, id)
 	if not IsOpen then
 		if type == "stash" then
@@ -759,6 +773,12 @@ RegisterNetEvent('inventory:server:OpenInventory', function(name, id, other)
 				secondInv.slots = #other.items
 			elseif name == "attachment_crafting" then
 				secondInv.name = "attachment_crafting"
+				secondInv.label = other.label
+				secondInv.maxweight = 900000
+				secondInv.inventory = other.items
+				secondInv.slots = #other.items
+			elseif name == "weapon_crafting" then
+				secondInv.name = "weapon_crafting"
 				secondInv.label = other.label
 				secondInv.maxweight = 900000
 				secondInv.inventory = other.items
@@ -1348,6 +1368,14 @@ RegisterNetEvent('inventory:server:SetInventoryData', function(fromInventory, to
 			TriggerClientEvent("inventory:client:UpdatePlayerInventory", src, true)
 			TriggerClientEvent('QBCore:Notify', src, "You don't have the right items..", "error")
 		end
+	elseif fromInventory == "weapon_crafting" then
+		local itemData = Config.WeaponCrafting["items"][fromSlot]
+		if hasCraftItems(src, itemData.costs, fromAmount) then
+			TriggerClientEvent("inventory:client:CraftWeapon", src, itemData.name, itemData.costs, fromAmount, toSlot, itemData.points)
+		else
+			TriggerClientEvent("inventory:client:UpdatePlayerInventory", src, true)
+			TriggerClientEvent('QBCore:Notify', src, "You don't have the right items..", "error")
+		end
 	else
 		-- drop
 		fromInventory = tonumber(fromInventory)
@@ -1520,6 +1548,18 @@ QBCore.Commands.Add("giveitem", "Give An Item (Admin Only)", {{name="id", help="
 					info.worth = math.random(5000, 10000)
 				elseif itemData["name"] == "labkey" then
 					info.lab = exports["qb-methlab"]:GenerateRandomLab()
+				elseif itemData["name"] == "laptop_black" then
+					info.uses = 3
+				elseif itemData["name"] == "laptop_green" then
+					info.uses = 3
+				elseif itemData["name"] == "laptop_blue" then
+					info.uses = 3
+				elseif itemData["name"] == "laptop_red" then
+					info.uses = 3
+				elseif itemData["name"] == "laptop_gold" then
+					info.uses = 3
+				elseif itemData["name"] == "usb_grey" then
+					info.uses = 3
 				elseif itemData["name"] == "printerdocument" then
 					info.url = "https://cdn.discordapp.com/attachments/870094209783308299/870104331142189126/Logo_-_Display_Picture_-_Stylized_-_Red.png"
 				end
