@@ -231,6 +231,40 @@ local function SetupAttachmentItemsInfo()
 	Config.AttachmentCrafting["items"] = items
 end
 
+local function SetupWeaponItemsInfo()
+	itemInfos = {
+		[1] = {costs = QBCore.Shared.Items["metalscrap"]["label"] .. ": 140x, " .. QBCore.Shared.Items["steel"]["label"] .. ": 250x, " .. QBCore.Shared.Items["rubber"]["label"] .. ": 60x"},
+		[2] = {costs = QBCore.Shared.Items["metalscrap"]["label"] .. ": 165x, " .. QBCore.Shared.Items["steel"]["label"] .. ": 285x, " .. QBCore.Shared.Items["rubber"]["label"] .. ": 75x"},
+		[3] = {costs = QBCore.Shared.Items["metalscrap"]["label"] .. ": 190x, " .. QBCore.Shared.Items["steel"]["label"] .. ": 305x, " .. QBCore.Shared.Items["rubber"]["label"] .. ": 85x, " .. QBCore.Shared.Items["smg_extendedclip"]["label"] .. ": 1x"},
+		[4] = {costs = QBCore.Shared.Items["metalscrap"]["label"] .. ": 205x, " .. QBCore.Shared.Items["steel"]["label"] .. ": 340x, " .. QBCore.Shared.Items["rubber"]["label"] .. ": 110x, " .. QBCore.Shared.Items["smg_extendedclip"]["label"] .. ": 2x"},
+		[5] = {costs = QBCore.Shared.Items["metalscrap"]["label"] .. ": 230x, " .. QBCore.Shared.Items["steel"]["label"] .. ": 365x, " .. QBCore.Shared.Items["rubber"]["label"] .. ": 130x"},
+		[6] = {costs = QBCore.Shared.Items["metalscrap"]["label"] .. ": 255x, " .. QBCore.Shared.Items["steel"]["label"] .. ": 390x, " .. QBCore.Shared.Items["rubber"]["label"] .. ": 145x"},
+		[7] = {costs = QBCore.Shared.Items["metalscrap"]["label"] .. ": 270x, " .. QBCore.Shared.Items["steel"]["label"] .. ": 435x, " .. QBCore.Shared.Items["rubber"]["label"] .. ": 155x"},
+		[8] = {costs = QBCore.Shared.Items["metalscrap"]["label"] .. ": 300x, " .. QBCore.Shared.Items["steel"]["label"] .. ": 469x, " .. QBCore.Shared.Items["rubber"]["label"] .. ": 170x"},
+	}
+
+	local items = {}
+	for k, item in pairs(Config.WeaponCrafting["items"]) do
+		local itemInfo = QBCore.Shared.Items[item.name:lower()]
+		items[item.slot] = {
+			name = itemInfo["name"],
+			amount = tonumber(item.amount),
+			info = itemInfos[item.slot],
+			label = itemInfo["label"],
+			description = itemInfo["description"] or "",
+			weight = itemInfo["weight"],
+			unique = itemInfo["unique"],
+			useable = itemInfo["useable"],
+			image = itemInfo["image"],
+			slot = item.slot,
+			costs = item.costs,
+			threshold = item.threshold,
+			points = item.points,
+		}
+	end
+	Config.WeaponCrafting["items"] = items
+end
+
 local function GetThresholdItems()
 	ItemsToItemInfo()
 	local items = {}
@@ -248,6 +282,17 @@ local function GetAttachmentThresholdItems()
 	for k, item in pairs(Config.AttachmentCrafting["items"]) do
 		if PlayerData.metadata["attachmentcraftingrep"] >= Config.AttachmentCrafting["items"][k].threshold then
 			items[k] = Config.AttachmentCrafting["items"][k]
+		end
+	end
+	return items
+end
+
+local function GetWeaponThresholdItems()
+	SetupWeaponItemsInfo()
+	local items = {}
+	for k, item in pairs(Config.WeaponCrafting["items"]) do
+		if PlayerData.metadata["weaponcraftingrep"] >= Config.WeaponCrafting["items"][k].threshold then
+			items[k] = Config.WeaponCrafting["items"][k]
 		end
 	end
 	return items
@@ -409,6 +454,33 @@ RegisterNetEvent('inventory:client:CraftAttachment', function(itemName, itemCost
 	}, {}, {}, function() -- Done
 		StopAnimTask(ped, "mini@repair", "fixing_a_player", 1.0)
         TriggerServerEvent("inventory:server:CraftAttachment", itemName, itemCosts, amount, toSlot, points)
+        TriggerEvent('inventory:client:ItemBox', QBCore.Shared.Items[itemName], 'add')
+        isCrafting = false
+	end, function() -- Cancel
+		StopAnimTask(ped, "mini@repair", "fixing_a_player", 1.0)
+        QBCore.Functions.Notify("Failed", "error")
+        isCrafting = false
+	end)
+end)
+
+RegisterNetEvent('inventory:client:CraftWeapon', function(itemName, itemCosts, amount, toSlot, points)
+    local ped = PlayerPedId()
+    SendNUIMessage({
+        action = "close",
+    })
+    isCrafting = true
+    QBCore.Functions.Progressbar("repair_vehicle", "Crafting..", (math.random(2000, 5000) * amount), false, true, {
+		disableMovement = true,
+		disableCarMovement = true,
+		disableMouse = false,
+		disableCombat = true,
+	}, {
+		animDict = "mini@repair",
+		anim = "fixing_a_player",
+		flags = 16,
+	}, {}, {}, function() -- Done
+		StopAnimTask(ped, "mini@repair", "fixing_a_player", 1.0)
+        TriggerServerEvent("inventory:server:CraftWeapon", itemName, itemCosts, amount, toSlot, points)
         TriggerEvent('inventory:client:ItemBox', QBCore.Shared.Items[itemName], 'add')
         isCrafting = false
 	end, function() -- Cancel
@@ -919,44 +991,72 @@ CreateThread(function()
 	end
 end)]]--
 
-    --qb-target
-    RegisterNetEvent("inventory:client:Crafting", function(dropId)
-        local crafting = {}
-        crafting.label = "Crafting"
-        crafting.items = GetThresholdItems()
-        TriggerServerEvent("inventory:server:OpenInventory", "crafting", math.random(1, 99), crafting)
-    end)
-    
-    
-    RegisterNetEvent("inventory:client:WeaponAttachmentCrafting", function(dropId)
-        local crafting = {}
-        crafting.label = "Attachment Crafting"
-        crafting.items = GetAttachmentThresholdItems()
-        TriggerServerEvent("inventory:server:OpenInventory", "attachment_crafting", math.random(1, 99), crafting)
-    end)
-    
-    local toolBoxModels = {
-        `prop_toolchest_05`,
-        `prop_tool_bench02_ld`,
-        `prop_tool_bench02`,
-        `prop_toolchest_02`,
-        `prop_toolchest_03`,
-        `prop_toolchest_03_l2`,
-        `prop_toolchest_05`,
-        `prop_toolchest_04`,
-    }
-    exports['qb-target']:AddTargetModel(toolBoxModels, {
-            options = {
-                {
-                    event = "inventory:client:WeaponAttachmentCrafting",
-                    icon = "fas fa-wrench",
-                    label = "Weapon Attachment Crafting", 
-                },
-                {
-                    event = "inventory:client:Crafting",
-                    icon = "fas fa-wrench",
-                    label = "Item Crafting", 
-                },
+--qb-target
+RegisterNetEvent("inventory:client:Crafting", function(dropId)
+    local crafting = {}
+    crafting.label = "Crafting"
+    crafting.items = GetThresholdItems()
+    TriggerServerEvent("inventory:server:OpenInventory", "crafting", math.random(1, 99), crafting)
+end)
+
+
+RegisterNetEvent("inventory:client:WeaponAttachmentCrafting", function(dropId)
+    local crafting = {}
+    crafting.label = "Attachment Crafting"
+    crafting.items = GetAttachmentThresholdItems()
+    TriggerServerEvent("inventory:server:OpenInventory", "attachment_crafting", math.random(1, 99), crafting)
+end)
+
+RegisterNetEvent("inventory:client:WeaponCrafting", function(dropId)
+    local crafting = {}
+    crafting.label = "Weapon Crafting"
+    crafting.items = GetAttachmentThresholdItems()
+    TriggerServerEvent("inventory:server:OpenInventory", "weapon_crafting", math.random(1, 99), crafting)
+end)
+
+local toolBoxModels = {
+    `prop_toolchest_05`,
+    `prop_tool_bench02_ld`,
+    `prop_tool_bench02`,
+    `prop_toolchest_02`,
+    `prop_toolchest_03`,
+    `prop_toolchest_03_l2`,
+    `prop_toolchest_05`,
+    `prop_toolchest_04`,
+}
+exports['qb-target']:AddTargetModel(toolBoxModels, {
+        options = {
+            {
+                event = "inventory:client:Crafting",
+                icon = "fas fa-wrench",
+                label = "Item Crafting", 
             },
-        distance = 1.0
-    })
+        },
+    distance = 1.0
+})
+
+local weaponbBenchModels = {
+    `gr_prop_gr_bench_01a`,
+    `gr_prop_gr_bench_01b`,
+    `gr_prop_gr_bench_02a`,
+    `gr_prop_gr_bench_02b`,
+    `gr_prop_gr_bench_03a`,
+    `gr_prop_gr_bench_03b`,
+    `gr_prop_gr_bench_04a`,
+    `gr_prop_gr_bench_04b`,
+}
+exports['qb-target']:AddTargetModel(weaponbBenchModels, {
+    options = {
+        {
+            event = "inventory:client:WeaponAttachmentCrafting",
+            icon = "fas fa-wrench",
+            label = "Weapon Attachment Crafting", 
+        },
+        {
+            event = "inventory:client:WeaponCrafting",
+            icon = "fas fa-wrench",
+            label = "Weapon Crafting", 
+        },
+    },
+distance = 1.0
+})
